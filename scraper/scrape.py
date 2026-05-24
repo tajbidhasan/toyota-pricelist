@@ -1,6 +1,7 @@
 """
 New Rochelle Toyota - vAuto Used Car Price List Scraper
 Credentials come from environment variables (never hardcoded).
+Login: Cox Automotive SSO (two-step: username -> Next -> password -> submit)
 """
 
 import os
@@ -63,16 +64,45 @@ def classify_tags(raw_tags):
 
 
 def login(driver):
-    print("Logging in...")
+    """
+    Cox Automotive SSO login - two step:
+    1. Enter username -> click Next
+    2. Enter password -> click Sign In
+    """
+    print("Navigating to vAuto login (Cox SSO)...")
     driver.get(LOGIN_URL)
-    wait = WebDriverWait(driver, 20)
-    f = wait.until(EC.presence_of_element_located((By.ID, "UserName")))
-    f.clear(); f.send_keys(VAUTO_USERNAME)
-    p = driver.find_element(By.ID, "Password")
-    p.clear(); p.send_keys(VAUTO_PASSWORD)
-    driver.find_element(By.CSS_SELECTOR, "button[type='submit'],input[type='submit']").click()
-    wait.until(EC.url_changes(LOGIN_URL))
-    print("Logged in:", driver.current_url)
+    wait = WebDriverWait(driver, 30)
+
+    # Step 1: Username field (type=text)
+    print("Waiting for username field...")
+    username_field = wait.until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='text'], input[name='username'], input[id*='user' i], input[placeholder*='user' i]"))
+    )
+    username_field.clear()
+    username_field.send_keys(VAUTO_USERNAME)
+    time.sleep(0.5)
+
+    # Click Next button
+    next_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit'], input[type='submit'], button.btn-primary, button#btn-signin")
+    next_btn.click()
+    print("Clicked Next, waiting for password field...")
+
+    # Step 2: Wait for password field to appear
+    password_field = wait.until(
+        EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='password']"))
+    )
+    password_field.clear()
+    password_field.send_keys(VAUTO_PASSWORD)
+    time.sleep(0.5)
+
+    # Submit password
+    submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit'], input[type='submit'], button.btn-primary")
+    submit_btn.click()
+    print("Submitted password, waiting for redirect...")
+
+    # Wait for redirect to vAuto (away from signin page)
+    wait.until(EC.url_contains("coxautoinc.com/Va"))
+    print("Logged in. URL:", driver.current_url)
 
 
 def scrape_inventory(driver):
